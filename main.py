@@ -1,300 +1,320 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from openpyxl import load_workbook
+import openpyxl
 import os
-import sys
 
-if getattr(sys, 'frozen', False):
-    BASE_DIR = sys._MEIPASS
-else:
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ARQUIVO_EXCEL = "clientes.xlsx"
 
-excel_path = os.path.join(BASE_DIR, "clientes.xlsx")
+CAMPOS = [
+    "ID", "Nome", "Cidade", "Estado", "Celular", "Dt. Nasc.", "Email", "Salário", "Categoria", "Objetivo", "Motivação", "T. de Compra", "Orçamento", "F. Pagamento" ,"Observações"
+]
 
-wb = load_workbook(excel_path)
-ws = wb.active
-
-larguras_personalizadas = {
-    "ID": 40,
-    "Nome": 200,
-    "Rua": 150,
-    "Número": 60,
-    "Bairro": 120,
-    "Cidade": 120,
-    "Estado": 50,
-    "CEP": 80,
-    "Celular": 110,
-    "Email": 180,
-    "Salário": 80,
-    "Categoria": 100,
-    "Objetivo de Compra": 180,
-    "Observações": 200,
+larguras_colunas = {
+    "ID": 5,
+    "Nome": 15,
+    "Cidade": 12,
+    "Estado": 6,
+    "Celular": 12,
+    "Dt. Nasc.": 11,
+    "Email": 18,
+    "Salário": 10,
+    "Categoria": 11,
+    "Objetivo": 14,
+    "Motivação": 16,
+    "T. de Compra": 12,
+    "Orçamento": 15,
+    "F. Pagamento": 15,
+    "Observações": 20
 }
 
 
 # Paleta de cores
-COR_FUNDO = "#465F87"
-COR_HEADER = "#D8F2F0"
-COR_BOTAO = "#89ABD9"
-COR_TEXTO = "#000000"
-COR_FILTRO_BG = "#2E3F5F"
+COR_BG = "#465F87"
+COR_FUNDO = "#324562"
+COR_TITULO = "#c2e4e4"
+COR_BOTAO = "#d2f4f4"
 
-colunas = ["ID", "Nome", "Rua", "Número", "Bairro", "Cidade", "Estado", "CEP",
-           "Celular", "Email", "Salário", "Categoria", "Objetivo de Compra", "Observações"]
+class SistemaClientes:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Sistema de Clientes")
+        self.root.geometry("1400x600")
+        self.root.configure(bg=COR_BG)
+        self.root.state('zoomed')
 
-def carregar_clientes():
-    return [
-        [cell if cell is not None else "" for cell in row]
-        for row in ws.iter_rows(min_row=2, values_only=True)
-    ]
+        self.dados = []
+        self.entries_filtro = []
 
+        self.criar_excel_se_nao_existir()
+        self.criar_widgets()
+        self.carregar_dados()
 
-def salvar_cliente(dados):
-    ws.append(dados)
-    wb.save(excel_path)
+    def criar_excel_se_nao_existir(self):
+        if not os.path.exists(ARQUIVO_EXCEL):
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.append(CAMPOS)
+            wb.save(ARQUIVO_EXCEL)
+            
+    def criar_widgets(self):
+        self.frame_principal = tk.Frame(self.root, bg=COR_BG, bd=0, highlightthickness=0)
+        self.frame_principal.pack(fill=tk.BOTH, expand=True)
 
-def atualizar_cliente(linha, dados):
-    for i, valor in enumerate(dados):
-        ws.cell(row=linha, column=i+1).value = valor
-    wb.save(excel_path)
+        # Parte superior: filtros + botão Filtrar
+        self.frame_filtros = tk.Frame(self.frame_principal, bg=COR_BG)
+        self.frame_filtros.pack(fill=tk.X, padx=10, pady=(10, 5))
 
-def excluir_cliente(linha):
-    ws.delete_rows(linha)
-    wb.save(excel_path)
+        for i, campo in enumerate(CAMPOS):
+            lbl = tk.Label(self.frame_filtros, text=campo, bg=COR_FUNDO, fg='white')
+            lbl.grid(row=0, column=i, sticky="ew")
 
-def centralizar_popup(janela, largura=500, altura=500):
-    janela.update_idletasks()
-    x = (janela.winfo_screenwidth() // 2) - (largura // 2)
-    y = (janela.winfo_screenheight() // 2) - (altura // 2)
-    janela.geometry(f"{largura}x{altura}+{x}+{y}")
+            if campo == "Salário":
+                frame_salario = tk.Frame(self.frame_filtros, bg=COR_BG)
+                frame_salario.grid(row=1, column=i, sticky="ew", padx=1, pady=1)
+                
+                var_operador = tk.StringVar(value="=")
+                operador = ttk.Combobox(frame_salario, textvariable=var_operador, width=2, state="readonly")
+                operador['values'] = ("=", ">", "<", ">=", "<=")
+                operador.grid(row=0, column=0)
 
-def criar_interface():
-    def atualizar_tabela(filtros=None):
-        for item in tree.get_children():
-            tree.delete(item)
+                entry_valor = tk.Entry(frame_salario, width=15)
+                entry_valor.grid(row=0, column=1)
 
-        for cliente in carregar_clientes():
-            if filtros:
-                match = True
-                for i, entrada in filtros.items():
-                    # Trata o campo de salário (índice 11)
-                    if isinstance(entrada, tuple) and len(entrada) == 2:
-                        operador, valor_input = entrada
-                        operador_map = {
-                            "Maior que": ">",
-                            "Menor que": "<",
-                            "Igual a": "="
-                        }
-                        operador_real = operador_map.get(operador)
+                self.entries_filtro.append((var_operador, entry_valor))
+            else:
+                entry = tk.Entry(self.frame_filtros, width=larguras_colunas[campo])
+                entry.grid(row=1, column=i, sticky="ew", padx=1, pady=1)
+                self.entries_filtro.append(entry)
 
-                        if operador_real and valor_input.strip():
-                            try:
-                                salario_cliente = float(str(cliente[i]).replace(",", ".").strip() or "0")
-                                valor_input = float(valor_input.replace(",", ".").strip())
-
-                                if operador_real == ">" and not (salario_cliente > valor_input):
-                                    match = False
-                                elif operador_real == "<" and not (salario_cliente < valor_input):
-                                    match = False
-                                elif operador_real == "=" and not (salario_cliente == valor_input):
-                                    match = False
-                            except (ValueError, TypeError) as e:
-                                print("Erro ao comparar salário:", e)
-                                match = False
-                        continue  # pula pro próximo filtro
-                    # Trata os outros campos (strings)
-                    if entrada:  # só filtra se houver algo
-                        valor_input = str(entrada).strip().lower()
-                        valor_cliente = str(cliente[i]).strip().lower()
-                        print(f"Comparando cliente[{i}] = '{valor_cliente}' com filtro = {valor_input}")
-                        if valor_input not in valor_cliente:
-                            match = False
-                            break
-                if not match:
-                    continue
-            tree.insert("", "end", values=cliente)
+            self.frame_filtros.grid_columnconfigure(i, weight=1)
 
 
-    def abrir_formulario(cliente=None, linha=None):
-        form = tk.Toplevel(root)
-        form.title("Atualização de Cliente" if cliente else "Cadastro de Cliente")
-        form.configure(bg=COR_FUNDO)
+        botao_filtro = tk.Button(self.frame_filtros, text="Filtrar", command=self.filtrar, bg=COR_FUNDO, fg='white')
+        botao_filtro.grid(row=1, column=len(CAMPOS), padx=(10, 0))
 
-        container = tk.Frame(form, bg=COR_FUNDO)
-        container.pack(expand=True)
+        # Frame da Tabela
+        frame_tabela = tk.Frame(self.frame_principal, bg=COR_BG)
+        frame_tabela.pack(fill=tk.BOTH, expand=True, padx=10, pady=(5, 10))
 
-        labels = ["Nome", "Rua", "Número", "Bairro", "Cidade", "Estado", "CEP",
-                "Celular", "Email", "Salário", "Categoria", "Objetivo de Compra", "Observações"]
-        entradas = {}
+        # Scrollbars
+        scrollbar_y = ttk.Scrollbar(frame_tabela, orient="vertical")
+        scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
 
-        for i, label in enumerate(labels):
-            tk.Label(container, text=label, bg=COR_FUNDO, fg="white", font=("Arial", 10)).grid(
-                row=i, column=0, padx=10, pady=5, sticky="e"
-            )
-            entrada = tk.Entry(container, width=30)
-            entrada.grid(row=i, column=1, padx=10, pady=5)
-            entradas[label] = entrada
+        scrollbar_x = ttk.Scrollbar(frame_tabela, orient="horizontal")
+        scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
 
-        if cliente:
-            for i, valor in enumerate(cliente[1:], start=1):  # Ignorando o ID
-                entradas[labels[i - 1]].insert(0, valor)
+        # Tabela (Treeview)
+        self.tabela = ttk.Treeview(
+            frame_tabela,
+            columns=CAMPOS,
+            show="headings",
+            yscrollcommand=scrollbar_y.set,
+            xscrollcommand=scrollbar_x.set
+        )
+        for campo in CAMPOS:
+            self.tabela.heading(campo, text=campo)
+            self.tabela.column(campo, width=larguras_colunas[campo] * 10, anchor="w")
+
+        self.tabela.pack(fill=tk.BOTH, expand=True)
+
+        scrollbar_y.config(command=self.tabela.yview)
+        scrollbar_x.config(command=self.tabela.xview)
+
+        # Botões CRUD
+        frame_botoes = tk.Frame(self.root, bg=COR_BG)
+        frame_botoes.pack(pady=10, padx=20)
+
+        tk.Button(frame_botoes, text="Criar", command=self.criar_cliente, bg=COR_FUNDO, width=12, fg='white', bd=0, highlightthickness=0).pack(side=tk.LEFT, padx=10)
+        tk.Button(frame_botoes, text="Editar", command=self.editar_cliente, bg=COR_FUNDO, width=12, fg='white', bd=0, highlightthickness=0).pack(side=tk.LEFT, padx=10)
+        tk.Button(frame_botoes, text="Excluir", command=self.excluir_cliente, bg=COR_FUNDO, width=12, fg='white', bd=0, highlightthickness=0).pack(side=tk.LEFT, padx=10)
+
+    def carregar_dados(self):
+        self.dados.clear()
+        wb = openpyxl.load_workbook(ARQUIVO_EXCEL)
+        ws = wb.active
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            self.dados.append(row)
+        wb.close()
+        self.atualizar_tabela(self.dados)
+
+    def atualizar_tabela(self, dados):
+        for item in self.tabela.get_children():
+            self.tabela.delete(item)
+        for row in dados:
+            # Substitui valores None por string vazia antes de inserir
+            linha_formatada = [cell if cell is not None else "" for cell in row]
+            self.tabela.insert("", tk.END, values=linha_formatada)
+
+    def filtrar(self):
+        resultado = []
+
+        for row in self.dados:
+            manter = True
+
+            for i in range(len(CAMPOS)):
+                campo = CAMPOS[i]
+                dado = str(row[i]).lower()
+
+                if campo == "Salário":
+                    operador, entry = self.entries_filtro[i]
+                    op = operador.get().strip()
+                    val = entry.get().strip()
+
+                    if val:
+                        try:
+                            dado_float = float(row[i])
+                            val_float = float(val)
+
+                            if op == "=" and not (dado_float == val_float):
+                                manter = False
+                            elif op == ">" and not (dado_float > val_float):
+                                manter = False
+                            elif op == "<" and not (dado_float < val_float):
+                                manter = False
+                            elif op == ">=" and not (dado_float >= val_float):
+                                manter = False
+                            elif op == "<=" and not (dado_float <= val_float):
+                                manter = False
+                        except ValueError:
+                            manter = False
+                else:
+                    filtro = self.entries_filtro[i].get().lower()
+                    if filtro and filtro not in dado:
+                        manter = False
+
+            if manter:
+                resultado.append(row)
+
+        self.atualizar_tabela(resultado)
+
+
+    def criar_cliente(self):
+        self.abrir_janela_edicao("Criar")
+
+    def editar_cliente(self):
+        selecionado = self.tabela.focus()
+        if not selecionado:
+            messagebox.showwarning("Atenção", "Selecione um cliente para editar.")
+            return
+        valores = self.tabela.item(selecionado)["values"]
+        self.abrir_janela_edicao("Editar", valores)
+
+    def excluir_cliente(self):
+        selecionado = self.tabela.focus()
+        if not selecionado:
+            messagebox.showwarning("Atenção", "Selecione um cliente para excluir.")
+            return
+        valores = self.tabela.item(selecionado)["values"]
+        if messagebox.askyesno("Confirmação", f"Deseja excluir o cliente {valores[1]}?"):
+            wb = openpyxl.load_workbook(ARQUIVO_EXCEL)
+            ws = wb.active
+            for row in ws.iter_rows(min_row=2):
+                if row[0].value == valores[0]:
+                    ws.delete_rows(row[0].row)
+                    break
+            wb.save(ARQUIVO_EXCEL)
+            self.carregar_dados()
+            
+    def abrir_janela_edicao(self, modo, dados=None):
+        janela = tk.Toplevel(self.root)
+        janela.title("Cadastrar Cliente" if modo == "Criar" else "Atualizar Cadastro")
+        janela.configure(bg=COR_BG)
+
+        largura_janela = 600
+        altura_janela = 500
+
+        janela.update_idletasks()
+        x = (janela.winfo_screenwidth() // 2) - (largura_janela // 2)
+        y = (janela.winfo_screenheight() // 2) - (altura_janela // 2)
+        janela.geometry(f"{largura_janela}x{altura_janela}+{x}+{y}")
+        janela.resizable(False, False)
+
+        titulo = tk.Label(janela, text=janela.title(), font=("Arial", 14, "bold"), fg="white", bg=COR_BG)
+        titulo.pack(pady=10)
+
+        # --- Scroll Setup ---
+        container = tk.Frame(janela, bg=COR_BG)
+        container.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(container, bg=COR_BG, highlightthickness=0)
+        scrollbar = tk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        scroll_frame = tk.Frame(canvas, bg=COR_BG)
+        canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+        scroll_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        frame_central = tk.Frame(scroll_frame, bg=COR_BG)
+        frame_central.pack(padx=50, pady=10)  # <-- padding para centralizar mais
+
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        entradas = []
+        for i, campo in enumerate(CAMPOS[1:]):
+            if campo == "Observações":
+                lbl = tk.Label(frame_central, text=f"{campo :}", bg=COR_BG, fg="white")
+                lbl.grid(row=i * 2, column=0, columnspan=2, sticky="w", padx=10, pady=(10, 2))
+
+                text = tk.Text(frame_central, width=65, height=5)
+                text.grid(row=i * 2 + 1, column=0, columnspan=2, sticky="w" ,padx=10, pady=(0, 10))
+                if dados:
+                    text.insert("1.0", dados[i + 1])
+                entradas.append(text)
+            else:
+                linha = i // 2
+                coluna = i % 2
+
+                lbl = tk.Label(frame_central, text=f"{campo :}", bg=COR_BG, fg="white")
+                lbl.grid(row=linha * 2, column=coluna, sticky="w", padx=10, pady=(10, 2))
+
+                entry = tk.Entry(frame_central, width=30)
+                entry.grid(row=linha * 2 + 1, column=coluna, sticky="w" ,padx=10, pady=(0, 10))
+
+                if dados:
+                    entry.insert(0, dados[i + 1])
+                entradas.append(entry)
+
 
         def salvar():
-            dados = [entrada.get() for entrada in entradas.values()]
-            if cliente:
-                atualizar_cliente(linha, [cliente[0]] + dados)  # Mantendo o ID original
-                messagebox.showinfo("Atualizado", "Cliente atualizado com sucesso!")
-            else:
-                novo_id = len(carregar_clientes()) + 1
-                salvar_cliente([novo_id] + dados)
-                messagebox.showinfo("Cadastrado", "Cliente cadastrado com sucesso!")
-            atualizar_tabela()
-            form.destroy()
+            valores = []
+            for e in entradas:
+                if isinstance(e, tk.Text):
+                    valores.append(e.get("1.0", "end").strip())
+                else:
+                    valores.append(e.get().strip())
 
-        btn_salvar = tk.Button(
-            container, text="Salvar", command=salvar,
-            bg=COR_BOTAO, fg=COR_TEXTO, font=("Arial", 10)
+            wb = openpyxl.load_workbook(ARQUIVO_EXCEL)
+            ws = wb.active
+
+            if modo == "Criar":
+                novo_id = ws.max_row
+                ws.append([novo_id] + valores)
+            else:
+                for row in ws.iter_rows(min_row=2):
+                    if row[0].value == dados[0]:
+                        for i, val in enumerate(valores):
+                            row[i + 1].value = val
+                        break
+            wb.save(ARQUIVO_EXCEL)
+            janela.destroy()
+            self.carregar_dados()
+
+        botao_salvar = tk.Button(
+            janela,
+            text="Salvar",
+            command=salvar,
+            bg="white",
+            fg="black",
+            width=15
         )
-        btn_salvar.grid(row=len(labels), column=0, columnspan=2, pady=10)
+        botao_salvar.pack(pady=10)
 
-        centralizar_popup(form, largura=400, altura=600)
-        form.grab_set()
-
-    def deletar_cliente():
-        item = tree.selection()
-        if not item:
-            messagebox.showwarning("Seleção", "Selecione um cliente para excluir.")
-            return
-        confirm = messagebox.askyesno("Confirmação", "Deseja realmente excluir o cliente?")
-        if confirm:
-            index = tree.index(item)
-            excluir_cliente(index + 2)
-            atualizar_tabela()
-            messagebox.showinfo("Excluído", "Cliente excluído com sucesso!")
-
-    def editar_cliente():
-        item = tree.selection()
-        if not item:
-            messagebox.showwarning("Seleção", "Selecione um cliente para editar.")
-            return
-        dados = tree.item(item)['values']
-        linha = tree.index(item) + 2
-        abrir_formulario(dados, linha)
-
-    def aplicar_filtros():
-        filtros = {}
-        for i, entrada in entradas_filtro.items():
-            if isinstance(entrada, tuple):  # campo do salário, com operador + valor
-                operador, valor = entrada
-                filtros[i] = (operador.get(), valor.get())
-
-            else:
-                filtros[i] = entrada.get()
-        atualizar_tabela(filtros)
-
-
-
-    def toggle_filtros():
-        if filtro_frame.winfo_ismapped():
-            filtro_frame.pack_forget()
-        else:
-            filtro_frame.pack(side="top", fill="x", pady=5)
-
-    global root
+# Executar
+if __name__ == "__main__":
     root = tk.Tk()
-    root.title("Sistema de Clientes")
-    root.configure(bg=COR_FUNDO)
-    root.state('zoomed')
-
-    btn_top = tk.Frame(root, bg=COR_FUNDO)
-    btn_top.pack(side="top", fill="x", pady=(10, 0))
-
-    tk.Button(btn_top, text="Filtros", font=("Arial", 10, "bold"),
-              command=toggle_filtros, bg=COR_BOTAO, fg=COR_TEXTO,
-              bd=0, highlightthickness=0, width=15, height=2).pack(side="left", padx=10)
-
-    filtro_frame = tk.Frame(root, bg=COR_FILTRO_BG)
-    entradas_filtro = {}
-
-    filtros_internos_frame = tk.Frame(filtro_frame, bg=COR_FILTRO_BG)
-    filtros_internos_frame.pack(anchor="center", pady=5)
-
-    col = 0  # índice manual da coluna
-
-    for i, coluna in enumerate(colunas):
-        larguras_filtros = {
-            "ID": 10,
-            "Nome": 18,
-            "Rua": 18,
-            "Número": 6,
-            "Bairro": 14,
-            "Cidade": 14,
-            "Estado": 5,
-            "CEP": 10,
-            "Celular": 12,
-            "Email": 22,
-            "Salário": 10,
-            "Categoria": 12,
-            "Objetivo de Compra": 20,
-            "Observações": 25,
-        }
-
-        largura = larguras_filtros.get(coluna, 12)
-
-        if coluna == "Salário":
-            # Label ocupa duas colunas
-            lbl = tk.Label(filtros_internos_frame, text=coluna, bg=COR_FILTRO_BG, fg="white", font=("Arial", 9))
-            lbl.grid(row=0, column=col, columnspan=2, padx=5, pady=2)
-
-            operador_combo = ttk.Combobox(
-                filtros_internos_frame,
-                values=["", "Maior que", "Menor que", "Igual a"],
-                width=10,
-                state="readonly"
-            )
-            operador_combo.set("Maior que")
-            operador_combo.grid(row=1, column=col, padx=(5, 2), pady=2)
-
-            entrada_salario = tk.Entry(filtros_internos_frame, width=10)
-            entrada_salario.grid(row=1, column=col + 1, padx=(2, 5), pady=2)
-
-            entradas_filtro[i] = (operador_combo, entrada_salario)
-            col += 2  # pular uma coluna extra porque "Salário" ocupa duas
-        else:
-            lbl = tk.Label(filtros_internos_frame, text=coluna, bg=COR_FILTRO_BG, fg="white", font=("Arial", 9))
-            lbl.grid(row=0, column=col, padx=5, pady=2)
-
-            entrada = tk.Entry(filtros_internos_frame, width=largura)
-            entrada.grid(row=1, column=col, padx=5, pady=2)
-            entradas_filtro[i] = entrada
-            col += 1
-
-    btn_aplicar = tk.Button(filtros_internos_frame, text="Aplicar Filtros", command=aplicar_filtros,
-                            font=("Arial", 10, "normal"), bg=COR_BOTAO, fg=COR_TEXTO,
-                            bd=0, highlightthickness=0, width=15, height=2)
-    btn_aplicar.grid(row=2, column=0, columnspan=len(colunas), pady=10)
-
-    tree = ttk.Treeview(root, columns=colunas, show="headings")
-
-    for col in colunas:
-        tree.heading(col, text=col)
-        largura = larguras_personalizadas.get(col, 100)
-        tree.column(col, width=largura)
-
-
-    tree.pack(expand=True, fill="both", padx=10, pady=10)
-
-    btn_frame = tk.Frame(root, bg=COR_FUNDO)
-    btn_frame.pack(side="bottom", fill="x", pady=10)
-
-    tk.Button(btn_frame, text="Novo Cliente", font=("Arial", 10, "normal"), command=lambda: abrir_formulario(cliente=""),
-              bg=COR_BOTAO, fg=COR_TEXTO, bd=0, highlightthickness=0, width=15, height=2).pack(side="left", padx=10)
-    tk.Button(btn_frame, text="Editar Cliente", font=("Arial", 10, "normal"), command=editar_cliente,
-              bg=COR_BOTAO, fg=COR_TEXTO, bd=0, highlightthickness=0, width=15, height=2).pack(side="left", padx=10)
-    tk.Button(btn_frame, text="Excluir Cliente", font=("Arial", 10, "normal"), command=deletar_cliente,
-              bg=COR_BOTAO, fg=COR_TEXTO, bd=0, highlightthickness=0, width=15, height=2).pack(side="left", padx=10)
-
-    atualizar_tabela()
+    app = SistemaClientes(root)
     root.mainloop()
-
-criar_interface()
