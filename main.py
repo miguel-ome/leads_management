@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox
 import openpyxl
 import os
 
-ARQUIVO_EXCEL = "clientes.xlsx"
+ARQUIVO_EXCEL = os.path.join(os.path.dirname(__file__), 'clientes.xlsx')
 
 CAMPOS = [
     "ID", "Nome", "Cidade", "Estado", "Celular", "Dt. Nasc.", "Email", "Salário", "Categoria", "Objetivo", "Motivação", "T. de Compra", "Orçamento", "F. Pagamento" ,"Observações"
@@ -162,6 +162,11 @@ class SistemaClientes:
 
                     if val:
                         try:
+                            # Verifica se o valor está vazio ou é None
+                            if row[i] is None or row[i] == "":
+                                manter = False
+                                continue
+                            
                             dado_float = float(row[i])
                             val_float = float(val)
 
@@ -220,7 +225,7 @@ class SistemaClientes:
         janela.title("Cadastrar Cliente" if modo == "Criar" else "Atualizar Cadastro")
         janela.configure(bg=COR_BG)
 
-        largura_janela = 600
+        largura_janela = 650
         altura_janela = 500
 
         janela.update_idletasks()
@@ -244,6 +249,10 @@ class SistemaClientes:
             "<Configure>",
             lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        canvas.bind_all("<MouseWheel>", _on_mousewheel) 
 
         frame_central = tk.Frame(scroll_frame, bg=COR_BG)
         frame_central.pack(padx=50, pady=10)  # <-- padding para centralizar mais
