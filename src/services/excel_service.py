@@ -20,6 +20,7 @@ class Excel_Services:
       ws.append(FIELDS_TABLE_LEADS)
       wb.save(path_file)
 
+  @staticmethod
   def load_data(name=""):
     if not name: 
       raise("Campo name obrigatório")
@@ -29,3 +30,12 @@ class Excel_Services:
     wb = openpyxl.load_workbook(path_file)
     ws = wb.active
     return [list(row) for row in ws.iter_rows(min_row=2, values_only=True)]
+  
+  @staticmethod
+  def validate_exist_DB():
+    arquivos = [f for f in os.listdir(Excel_Services.path_excel) if os.path.isfile(os.path.join(Excel_Services.path_excel, f))]
+    if arquivos:
+      return True 
+    else : 
+      return False
+    
